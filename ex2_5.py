@@ -27,12 +27,13 @@ assert geometric_cdf(0.5, 10) == sum([geometric(0.5, i) for i in range(11)])
 
 def coupon(N, k, N_total=None):
     """
-    probability to have k coupons before collecting all N variation
+    probability to have at least k coupons before collecting N variations out of N_total
     N - coupon types left to collect
     k - coupons left to collect (aka try amount)
-    N_orig - total coupon amount
+    N_total - total coupon amount
 
     Note: implementation from the presentation in lecture 3 slide 21
+    Note2: this method has complexity O(k^N)
     """
     if N_total is None:  # if not defined, we assume N is the total coupon amount
         N_total = N
@@ -40,11 +41,11 @@ def coupon(N, k, N_total=None):
     if k < N or k == 0:  # not possible to achieve cases
         return 0
     if N == 1: # completing the last coupon
-        return geometric_cdf(1 - 1/N_total, k) # if we want P(T_N=k) we can change geometric_cdf with geometric
+        return geometric(1 - 1/N_total, k) # if we want P(T_N=k) we can change geometric_cdf with geometric
     # convolution on N-1
     # (sum over probabilities for collecting N-1 coupons with some k' and then getting
     # the final coupon with k-k')
-    prob_new = 1 - N / N_total  # probability to get a coupon we already see
+    prob_new = 1 - N / N_total  # probability to get a new coupon
     conv_results = []
     for i in range(1, k):
         conv_part = geometric(prob_new, k - i) * coupon(N - 1, i, N_total)
@@ -53,7 +54,7 @@ def coupon(N, k, N_total=None):
     return result
 
 assert coupon(2,2)==0.5
-assert coupon(2,3)==0.75
+assert coupon(2,3)==0.25
 
 def coupon_DP(N, k, N_total=None):
     """
@@ -69,14 +70,16 @@ def coupon_DP(N, k, N_total=None):
     if k==0:
         return 0
     M = [[0]*k for _ in range(N)] # N rows, k columns (starting from 1)
-    for j in range(N-1,k):
-        M[0][j] = geometric_cdf(1 - 1 / N_total, j)
+    M[0][0]=1
     for n in range(1,N):
+        prob_new = 1 - n / N_total
         for j in range(k):
-            prob_new = 1 - N / N_total
-            for i in range(j, k):
-                M[n][j] = M[n][j] + geometric(prob_new, k - i) * M[n - 1][i]
-    return M[N-1][k-1]
+            if j<n: # k<N case
+                continue
+            for i in range(j):
+                M[n][j] = M[n][j] + geometric(prob_new, j - i) * M[n - 1][i]
+    return M
 
 
-assert coupon_DP(2,5) == coupon(2,5)
+assert coupon_DP(2,2)[-1][-1] == 0.5
+assert coupon_DP(2,5)[-1][-1] == coupon(2,5)
